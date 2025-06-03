@@ -390,7 +390,7 @@ export const SING_BOX_CONFIG = {
 				address: "tcp://1.1.1.1",
 				address_resolver: "dns_resolver",
 				strategy: "ipv4_only",
-				detour: "🚀 节点选择"
+				detour: "🚀 Node selection"
 			},
 			{
 				tag: "dns_direct", 
