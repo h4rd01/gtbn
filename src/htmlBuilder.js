@@ -61,7 +61,7 @@ const generateDarkModeToggle = () => `
 
 const generateGithubLink = () => `
   <a href="https://sbn.siub.xyz/sub" target="_blank" rel="noopener noreferrer" class="github-link">
-    <i class="fab fa-github"></i>
+    <i class="fas fa-smile"></i>
   </a>
 `;
 
