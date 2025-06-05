@@ -33,15 +33,12 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     cipher: proxy.method,
                     password: proxy.password,
                     udp: proxy.udp ?? true,
-                    plugin: proxy.plugin?.type || undefined,
-                    'plugin-opts': proxy.plugin?.type === 'v2ray-plugin' ? {
-                        mode: proxy.plugin?.mode || 'websocket',
-                        host: proxy.plugin?.host || undefined,
-                        path: proxy.plugin?.path || undefined,
-                        mux: proxy.plugin?.mux ?? false,
-                        tls: proxy.plugin?.tls || false,
-                        sni: proxy.plugin?.sni || undefined,
-                        'skip-cert-verify': proxy.plugin?.insecure || false
+                    tls: proxy.tls?.enabled || false,
+                    servername: proxy.tls?.server_name || '',
+                    network: proxy.transport?.type || 'tcp',
+                    'ws-opts': proxy.transport?.type === 'ws' ? {
+                        path: proxy.transport.path,
+                        headers: proxy.transport.headers
                     } : undefined
                 };
             case 'vmess':
