@@ -1,5 +1,5 @@
 import yaml from 'js-yaml';
-import { CLASH_CONFIG, generateRules, generateClashRuleSets } from './config.js';
+import { CLASH_CONFIG, generateRules, generateClashRuleSets, getOutbounds, PREDEFINED_RULE_SETS } from './config.js';
 import { BaseConfigBuilder } from './BaseConfigBuilder.js';
 import { DeepCopy } from './utils.js';
 import { t } from './i18n/index.js';
@@ -31,17 +31,8 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     server: proxy.server,
                     port: proxy.server_port,
                     cipher: proxy.method,
-                    password: proxy.password,
-                    udp: proxy.udp !== undefined ? proxy.udp : true, // Mengatur udp sesuai input
-                    plugin: proxy.plugin || undefined,
-                    'plugin-opts': {
-                        mode: proxy.plugin_opts?.mode || undefined,
-                        host: proxy.plugin_opts?.host || undefined,
-                        path: proxy.plugin_opts?.path || undefined,
-                        mux: proxy.plugin_opts?.mux !== undefined ? proxy.plugin_opts.mux : false // Default mux ke false
-                    }
+                    password: proxy.password
                 };
-
             case 'vmess':
                 return {
                     name: proxy.tag,
@@ -59,7 +50,6 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                         headers: proxy.transport.headers
                     } : undefined
                 };
-                
             case 'vless':
                 return {
                     name: proxy.tag,
@@ -75,7 +65,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     'ws-opts': proxy.transport?.type === 'ws' ? {
                         path: proxy.transport.path,
                         headers: proxy.transport.headers
-                    } : undefined,
+                    }: undefined,
                     'reality-opts': proxy.tls.reality?.enabled ? {
                         'public-key': proxy.tls.reality.public_key,
                         'short-id': proxy.tls.reality.short_id,
@@ -87,7 +77,6 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     'skip-cert-verify': proxy.tls.insecure,
                     'flow': proxy.flow ?? undefined,
                 };
-
             case 'hysteria2':
                 return {
                     name: proxy.tag,
@@ -102,7 +91,6 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     down: proxy.down_mbps,
                     'recv-window-conn': proxy.recv_window_conn,
                 };
-
             case 'trojan':
                 return {
                     name: proxy.tag,
@@ -118,7 +106,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     'ws-opts': proxy.transport?.type === 'ws' ? {
                         path: proxy.transport.path,
                         headers: proxy.transport.headers
-                    } : undefined,
+                    }: undefined,
                     'reality-opts': proxy.tls.reality?.enabled ? {
                         'public-key': proxy.tls.reality.public_key,
                         'short-id': proxy.tls.reality.short_id,
@@ -130,7 +118,6 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     'skip-cert-verify': proxy.tls.insecure,
                     'flow': proxy.flow ?? undefined,
                 };
-
             case 'tuic':
                 return {
                     name: proxy.tag,
@@ -146,9 +133,8 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     'sni': proxy.tls.server_name,
                     'udp-relay-mode': 'native',
                 };
-
             default:
-                return proxy; // Kembalikan seperti aslinya jika tidak ada konversi yang berlaku
+                return proxy; // Return as-is if no specific conversion is defined
         }
     }
 
@@ -210,6 +196,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         });
     }
 
+    // 生成规则
     generateRules() {
         return generateRules(this.selectedRules, this.customRules);
     }
@@ -218,41 +205,47 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         const rules = this.generateRules();
         const ruleResults = [];
         
+        // 获取.mrs规则集配置
         const { site_rule_providers, ip_rule_providers } = generateClashRuleSets(this.selectedRules, this.customRules);
         
+        // 添加规则集提供者
         this.config['rule-providers'] = {
             ...site_rule_providers,
             ...ip_rule_providers
         };
 
+        // 使用RULE-SET规则格式替代原有的GEOSITE/GEOIP
+        // Rule-Set & Domain-Set:  To reduce DNS leaks and unnecessary DNS queries,
+        // domain & non-IP rules must precede IP rules
+
         rules.filter(rule => !!rule.domain_suffix || !!rule.domain_keyword).map(rule => {
             rule.domain_suffix.forEach(suffix => {
-                ruleResults.push(`DOMAIN-SUFFIX,${suffix},${t('outboundNames.' + rule.outbound)}`);
+                ruleResults.push(`DOMAIN-SUFFIX,${suffix},${t('outboundNames.'+ rule.outbound)}`);
             });
             rule.domain_keyword.forEach(keyword => {
-                ruleResults.push(`DOMAIN-KEYWORD,${keyword},${t('outboundNames.' + rule.outbound)}`);
+                ruleResults.push(`DOMAIN-KEYWORD,${keyword},${t('outboundNames.'+ rule.outbound)}`);
             });
         });
 
         rules.filter(rule => !!rule.site_rules[0]).map(rule => {
             rule.site_rules.forEach(site => {
-                ruleResults.push(`RULE-SET,${site},${t('outboundNames.' + rule.outbound)}`);
+                ruleResults.push(`RULE-SET,${site},${t('outboundNames.'+ rule.outbound)}`);
             });
         });
 
         rules.filter(rule => !!rule.ip_rules[0]).map(rule => {
             rule.ip_rules.forEach(ip => {
-                ruleResults.push(`RULE-SET,${ip},${t('outboundNames.' + rule.outbound)},no-resolve`);
+                ruleResults.push(`RULE-SET,${ip},${t('outboundNames.'+ rule.outbound)},no-resolve`);
             });
         });
 
         rules.filter(rule => !!rule.ip_cidr).map(rule => {
             rule.ip_cidr.forEach(cidr => {
-                ruleResults.push(`IP-CIDR,${cidr},${t('outboundNames.' + rule.outbound)},no-resolve`);
+                ruleResults.push(`IP-CIDR,${cidr},${t('outboundNames.'+ rule.outbound)},no-resolve`);
             });
         });
 
-        this.config.rules = [...ruleResults];
+        this.config.rules = [...ruleResults]
 
         this.config.rules.push(`MATCH,${t('outboundNames.Fall Back')}`);
 
