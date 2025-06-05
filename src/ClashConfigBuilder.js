@@ -23,7 +23,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
     }
 
     convertProxy(proxy) {
-        switch(proxy.type) {
+        switch (proxy.type) {
             case 'shadowsocks':
                 return {
                     name: proxy.tag,
@@ -31,7 +31,18 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     server: proxy.server,
                     port: proxy.server_port,
                     cipher: proxy.method,
-                    password: proxy.password
+                    password: proxy.password,
+                    udp: proxy.udp ?? true,
+                    plugin: proxy.plugin?.type || undefined,
+                    'plugin-opts': proxy.plugin?.type === 'v2ray-plugin' ? {
+                        mode: proxy.plugin?.mode || 'websocket',
+                        host: proxy.plugin?.host || undefined,
+                        path: proxy.plugin?.path || undefined,
+                        mux: proxy.plugin?.mux ?? false,
+                        tls: proxy.plugin?.tls || false,
+                        sni: proxy.plugin?.sni || undefined,
+                        'skip-cert-verify': proxy.plugin?.insecure || false
+                    } : undefined
                 };
             case 'vmess':
                 return {
