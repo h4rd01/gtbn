@@ -25,14 +25,32 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
     convertProxy(proxy) {
         switch(proxy.type) {
             case 'shadowsocks':
-                return {
+                const ssConfig = {
                     name: proxy.tag,
                     type: 'ss',
                     server: proxy.server,
                     port: proxy.server_port,
                     cipher: proxy.method,
-                    password: proxy.password
+                    password: proxy.password,
+                    udp: proxy.udp ? true : false,  // Add UDP support
+                    plugin: proxy.plugin || undefined, // Add plugin if exists
+                    'plugin-opts': {
+                        mode: proxy.plugin_opts?.mode || undefined, // Safe access to plugin options
+                        host: proxy.plugin_opts?.host || undefined,
+                        path: proxy.plugin_opts?.path || undefined,
+                        mux: proxy.plugin_opts?.mux !== undefined ? proxy.plugin_opts.mux : false,  // Default to false
+                    }
                 };
+                // Check if websocket transport is enabled
+                if (proxy.transport?.type === 'ws') {
+                    ssConfig.network = 'ws'; // Indicate that this uses WebSocket
+                    ssConfig['ws-opts'] = {
+                        path: proxy.transport.path,
+                        headers: proxy.transport.headers || {} // Default to empty headers if not provided
+                    };
+                }
+                return ssConfig;
+
             case 'vmess':
                 return {
                     name: proxy.tag,
@@ -50,6 +68,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                         headers: proxy.transport.headers
                     } : undefined
                 };
+                
             case 'vless':
                 return {
                     name: proxy.tag,
@@ -65,7 +84,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     'ws-opts': proxy.transport?.type === 'ws' ? {
                         path: proxy.transport.path,
                         headers: proxy.transport.headers
-                    }: undefined,
+                    } : undefined,
                     'reality-opts': proxy.tls.reality?.enabled ? {
                         'public-key': proxy.tls.reality.public_key,
                         'short-id': proxy.tls.reality.short_id,
@@ -73,10 +92,11 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     'grpc-opts': proxy.transport?.type === 'grpc' ? {
                         'grpc-service-name': proxy.transport.service_name,
                     } : undefined,
-                    tfo : proxy.tcp_fast_open,
+                    tfo: proxy.tcp_fast_open,
                     'skip-cert-verify': proxy.tls.insecure,
                     'flow': proxy.flow ?? undefined,
                 };
+
             case 'hysteria2':
                 return {
                     name: proxy.tag,
@@ -91,6 +111,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     down: proxy.down_mbps,
                     'recv-window-conn': proxy.recv_window_conn,
                 };
+                
             case 'trojan':
                 return {
                     name: proxy.tag,
@@ -114,10 +135,11 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     'grpc-opts': proxy.transport?.type === 'grpc' ? {
                         'grpc-service-name': proxy.transport.service_name,
                     } : undefined,
-                    tfo : proxy.tcp_fast_open,
+                    tfo: proxy.tcp_fast_open,
                     'skip-cert-verify': proxy.tls.insecure,
                     'flow': proxy.flow ?? undefined,
                 };
+
             case 'tuic':
                 return {
                     name: proxy.tag,
@@ -133,6 +155,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     'sni': proxy.tls.server_name,
                     'udp-relay-mode': 'native',
                 };
+
             default:
                 return proxy; // Return as-is if no specific conversion is defined
         }
@@ -196,7 +219,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         });
     }
 
-    // 生成规则
+    // Generate Rules
     generateRules() {
         return generateRules(this.selectedRules, this.customRules);
     }
@@ -205,17 +228,17 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         const rules = this.generateRules();
         const ruleResults = [];
         
-        // 获取.mrs规则集配置
+        // Get rule sets configuration
         const { site_rule_providers, ip_rule_providers } = generateClashRuleSets(this.selectedRules, this.customRules);
         
-        // 添加规则集提供者
+        // Add rule providers
         this.config['rule-providers'] = {
             ...site_rule_providers,
             ...ip_rule_providers
         };
 
-        // 使用RULE-SET规则格式替代原有的GEOSITE/GEOIP
-        // Rule-Set & Domain-Set:  To reduce DNS leaks and unnecessary DNS queries,
+        // Using RULE-SET rules format instead of original GEOSITE/GEOIP
+        // Rule-Set & Domain-Set to reduce DNS leaks and unnecessary DNS queries,
         // domain & non-IP rules must precede IP rules
 
         rules.filter(rule => !!rule.domain_suffix || !!rule.domain_keyword).map(rule => {
@@ -246,7 +269,6 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         });
 
         this.config.rules = [...ruleResults]
-
         this.config.rules.push(`MATCH,${t('outboundNames.Fall Back')}`);
 
         return yaml.dump(this.config);
