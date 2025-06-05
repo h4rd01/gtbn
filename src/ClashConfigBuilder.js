@@ -35,8 +35,8 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     udp: proxy.udp ?? true,
                     tls: proxy.tls?.enabled || false,
                     servername: proxy.tls?.server_name || '',
-                    network: proxy.transport?.type || 'tcp',
-                    'ws-opts': proxy.transport?.type === 'ws' ? {
+                    plugin: v2ray-plugin,
+                    'plugin-opts': proxy.transport?.type === 'ws' ? {
                         path: proxy.transport.path,
                         headers: proxy.transport.headers
                     } : undefined
